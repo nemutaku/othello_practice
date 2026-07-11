@@ -27,7 +27,7 @@
     .cell:hover:not(:disabled) { background:#218457; }
     .cell:disabled { cursor:default; }
     .disc { position:absolute; width:74%; height:74%; inset:13%; border-radius:50%; box-shadow:inset 0 -5px 8px #0005, 1px 3px 4px #0005; }
-    .disc.last-move::after { content:""; position:absolute; width:22%; height:22%; inset:39%; border:2px solid var(--gold); border-radius:50%; box-shadow:0 0 0 1px #fff8; }
+    .disc.last-move::after { content:""; position:absolute; width:22%; height:22%; top:50%; left:50%; transform:translate(-50%,-50%); border-radius:50%; background:#d92d2d; }
     .black { background:radial-gradient(circle at 33% 25%,#59635c,#111512 56%,#010201); }
     .white { background:radial-gradient(circle at 33% 23%,#fff,#e9eeea 49%,#aab6ad); }
     .hint::after { content:""; position:absolute; width:18%; height:18%; inset:41%; border-radius:50%; background:var(--gold); opacity:.85; }
