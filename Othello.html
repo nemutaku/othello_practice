@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OTHELLO — AI 対局</title>
+  <style>
+    :root { color-scheme: light; --ink:#173022; --muted:#5f7166; --green:#16734c; --board:#2d9c65; --line:#176742; --gold:#a66d08; --panel:#ffffff; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; padding:24px; color:var(--ink); font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; background:radial-gradient(circle at 50% -10%,#ffffff,#e7f0ea 62%); }
+    main { width:min(940px,100%); }
+    header { display:flex; justify-content:space-between; gap:18px; align-items:end; margin-bottom:22px; }
+    h1 { margin:0; letter-spacing:.13em; font-size:clamp(1.45rem,4vw,2.2rem); }
+    .sub { margin:6px 0 0; color:var(--muted); font-size:.9rem; }
+    .score { display:flex; gap:10px; }
+    .count { min-width:78px; padding:8px 12px; border:1px solid #bdd1c3; border-radius:10px; background:#ffffff; text-align:center; }
+    .count b { font-size:1.3rem; margin-left:5px; }
+    .layout { display:grid; grid-template-columns:minmax(280px,570px) minmax(220px,1fr); gap:22px; align-items:start; }
+    .board-column { display:grid; gap:12px; }
+    .board-wrap { padding:14px; background:#ffffff; border:1px solid #c7d8cc; border-radius:16px; box-shadow:0 14px 30px #45615022; }
+    .coord-top { display:grid; grid-template-columns:24px repeat(8,1fr); margin-bottom:5px; color:var(--muted); font-size:.82rem; font-weight:700; text-align:center; }
+    .board-row { display:grid; grid-template-columns:24px minmax(0,1fr); align-items:stretch; }
+    .coord-left { display:grid; grid-template-rows:repeat(8,1fr); color:var(--muted); font-size:.82rem; font-weight:700; text-align:center; align-items:center; }
+    #board { display:grid; grid-template-columns:repeat(8,1fr); aspect-ratio:1; border:2px solid #2b8f61; background:var(--line); }
+    .cell { position:relative; border:1px solid var(--line); background:var(--board); cursor:pointer; padding:0; min-width:0; }
+    .cell:hover:not(:disabled) { background:#218457; }
+    .cell:disabled { cursor:default; }
+    .disc { position:absolute; width:74%; height:74%; inset:13%; border-radius:50%; box-shadow:inset 0 -5px 8px #0005, 1px 3px 4px #0005; }
+    .black { background:radial-gradient(circle at 33% 25%,#59635c,#111512 56%,#010201); }
+    .white { background:radial-gradient(circle at 33% 23%,#fff,#e9eeea 49%,#aab6ad); }
+    .hint::after { content:""; position:absolute; width:18%; height:18%; inset:41%; border-radius:50%; background:var(--gold); opacity:.85; }
+    .record-panel { padding:14px; border:1px solid #c7d8cc; border-radius:14px; background:#ffffff; }
+    .record-head { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:8px; }
+    .record-title { margin:0; font-size:.92rem; font-weight:700; }
+    #record { width:100%; min-height:64px; resize:vertical; padding:9px; border:1px solid #b9cec0; border-radius:8px; background:#f6faf7; color:var(--ink); font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.88rem; line-height:1.45; }
+    .copy-row { display:flex; align-items:center; gap:10px; margin-top:9px; }
+    .copy-btn { padding:7px 10px; border:1px solid #9bb7a2; background:#ffffff; color:var(--ink); cursor:pointer; }
+    #copyStatus { color:var(--muted); font-size:.8rem; }
+    aside { display:grid; gap:14px; }
+    .panel { padding:17px; border:1px solid #c7d8cc; border-radius:14px; background:linear-gradient(145deg,#ffffff,#f3f8f4); }
+    .turn { font-size:1.1rem; font-weight:700; color:var(--gold); min-height:1.7em; }
+    .message { min-height:3em; color:var(--muted); line-height:1.55; font-size:.92rem; }
+    label { display:block; color:var(--muted); font-size:.84rem; margin-bottom:7px; }
+    select, button { font:inherit; border-radius:9px; }
+    select { width:100%; padding:10px; color:var(--ink); border:1px solid #9bb7a2; background:#ffffff; }
+    button.action { width:100%; padding:11px; border:0; color:#112016; background:var(--gold); font-weight:750; cursor:pointer; }
+    button.action:hover { filter:brightness(1.08); }
+    .legend { display:flex; gap:15px; color:var(--muted); font-size:.83rem; }
+    .dot { display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:5px; vertical-align:-1px; }
+    .dot.black { background:#151815; }.dot.white { background:#e8efe9; border:1px solid #98aa9d; }
+    @media(max-width:700px) { body{padding:16px} header{align-items:start; flex-direction:column}.layout{grid-template-columns:1fr}.score{align-self:stretch}.count{flex:1} }
+  </style>
+</head>
+<body>
+<main>
+  <header><div><h1>OTHELLO</h1><p class="sub">あなた（黒） vs AI（白）</p></div><div class="score"><div class="count"><span class="dot black"></span>黒 <b id="blackScore">2</b></div><div class="count"><span class="dot white"></span>白 <b id="whiteScore">2</b></div></div></header>
+  <div class="layout"><div class="board-column"><section class="board-wrap" aria-label="オセロ盤"><div class="coord-top" aria-hidden="true"><span></span><span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span><span>G</span><span>H</span></div><div class="board-row"><div class="coord-left" aria-hidden="true"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span></div><div id="board" role="grid" aria-label="オセロ盤"></div></div></section><section class="record-panel" aria-label="棋譜"><div class="record-head"><p class="record-title">棋譜</p></div><textarea id="record" readonly aria-label="棋譜">対局開始</textarea><div class="copy-row"><button id="copyRecord" type="button" class="copy-btn">棋譜をコピー</button><span id="copyStatus" aria-live="polite"></span></div></section></div><aside>
+    <div class="panel"><div id="turn" class="turn">あなたの番です</div><p id="message" class="message">金色の印が置ける場所です。</p><div class="legend"><span><i class="dot black"></i>あなた</span><span><i class="dot white"></i>AI</span></div></div>
+    <div class="panel"><label for="playerColor">あなたの石</label><select id="playerColor"><option value="black" selected>黒（先手）</option><option value="white">白（後手）</option></select></div>
+    <button id="newGame" class="action">新しい対局</button>
+  </aside></div>
+</main>
+<script>
+(() => {
+  const E=0,B=1,W=-1,dirs=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]],boardEl=document.querySelector('#board');
+  let board,turn,human=B,ai=W,aiLastMove=null,history=[],busy=false,gameOver=false;
+  const inside=(r,c)=>r>=0&&r<8&&c>=0&&c<8;
+  const copy=b=>b.map(r=>r.slice());
+  function flips(b,r,c,p){ if(b[r][c]!==E)return []; let out=[]; for(const[dr,dc]of dirs){let x=r+dr,y=c+dc,line=[];while(inside(x,y)&&b[x][y]===-p){line.push([x,y]);x+=dr;y+=dc}if(line.length&&inside(x,y)&&b[x][y]===p)out=out.concat(line)}return out }
+  function moves(b,p){let a=[];for(let r=0;r<8;r++)for(let c=0;c<8;c++){let f=flips(b,r,c,p);if(f.length)a.push({r,c,f})}return a}
+  function put(b,m,p){let n=copy(b);n[m.r][m.c]=p;for(const[r,c]of m.f)n[r][c]=p;return n}
+  function count(p){return board.flat().filter(x=>x===p).length}
+  function evaluate(b){const weights=[[120,-25,20,5,5,20,-25,120],[-25,-45,-1,-1,-1,-1,-45,-25],[20,-1,8,2,2,8,-1,20],[5,-1,2,1,1,2,-1,5],[5,-1,2,1,1,2,-1,5],[20,-1,8,2,2,8,-1,20],[-25,-45,-1,-1,-1,-1,-45,-25],[120,-25,20,5,5,20,-25,120]];let whiteScore=0,edge=0;for(let r=0;r<8;r++)for(let c=0;c<8;c++){whiteScore-=b[r][c]*(weights[r][c]+3);if((r===0||r===7||c===0||c===7)&&!((r===0||r===7)&&(c===0||c===7)))edge-=b[r][c]}whiteScore+=10*edge+2*(moves(b,W).length-moves(b,B).length);const humanCornerMoves=moves(b,human).filter(m=>(m.r===0||m.r===7)&&(m.c===0||m.c===7)).length;return (ai===W?whiteScore:-whiteScore)-1000*humanCornerMoves}
+  function minimax(b,p,d,a=-1e9,z=1e9){let ms=moves(b,p);if(!d||(!ms.length&&!moves(b,-p).length))return evaluate(b);if(!ms.length)return minimax(b,-p,d-1,a,z);if(p===ai){let v=-1e9;for(const m of ms){v=Math.max(v,minimax(put(b,m,p),-p,d-1,a,z));a=Math.max(a,v);if(a>=z)break}return v}else{let v=1e9;for(const m of ms){v=Math.min(v,minimax(put(b,m,p),-p,d-1,a,z));z=Math.min(z,v);if(a>=z)break}return v}}
+  function isParallelMove(m){return aiLastMove&&((m.c===aiLastMove.c&&Math.abs(m.r-aiLastMove.r)===1)||(m.r===aiLastMove.r&&Math.abs(m.c-aiLastMove.c)===1))}
+  function openingMove(){const ply=board.flat().filter(v=>v!==E).length-4;if(ply>=10)return null;const openingWeights=[[-4,-3,-2,-2,-2,-2,-3,-4],[-3,-3,-1,-1,-1,-1,-3,-3],[-2,-1,0,0,0,0,-1,-2],[-2,-1,0,0,0,0,-1,-2],[-2,-1,0,0,0,0,-1,-2],[-2,-1,0,0,0,0,-1,-2],[-3,-3,-1,-1,-1,-1,-3,-3],[-4,-3,-2,-2,-2,-2,-3,-4]];const rated=moves(board,ai).map(m=>{const next=put(board,m,ai);let whiteScore=0;for(let r=0;r<8;r++)for(let c=0;c<8;c++)whiteScore-=next[r][c]*openingWeights[r][c];const humanCorner=moves(next,human).some(x=>(x.r===0||x.r===7)&&(x.c===0||x.c===7));return {m,score:(ai===W?whiteScore:-whiteScore)+(humanCorner?99:0),parallel:isParallelMove(m)}});const balanced=rated.filter(x=>Math.abs(x.score)<=2);let pool=balanced.length?balanced:rated.filter(x=>Math.abs(x.score)===Math.min(...rated.map(y=>Math.abs(y.score))));const nonParallel=pool.filter(x=>!x.parallel);if(nonParallel.length&&Math.random()<.9)pool=nonParallel;return pool[Math.floor(Math.random()*pool.length)].m}
+  function bestMove(){const opening=openingMove();if(opening)return opening;const ms=moves(board,ai),d=7;let best=-1e9,pick=ms[0];for(const m of ms){const next=put(board,m,ai),cornerOptions=moves(next,human).filter(x=>(x.r===0||x.r===7)&&(x.c===0||x.c===7)).length,v=minimax(next,human,d-1)-1500*cornerOptions-30*(isParallelMove(m)?1:0);if(v>best||(v===best&&Math.random()<.5)){best=v;pick=m}}return pick}
+  function status(text){document.querySelector('#message').textContent=text}
+  function render(){boardEl.replaceChildren();const legal=turn===B&&!busy?moves(board,B):[];for(let r=0;r<8;r++)for(let c=0;c<8;c++){const v=board[r][c],cell=document.createElement('button');cell.className='cell'+(!v&&legal.some(m=>m.r===r&&m.c===c)?' hint':'');cell.disabled=busy||gameOver||turn!==B||!legal.some(m=>m.r===r&&m.c===c);cell.setAttribute('aria-label',`${r+1}行 ${c+1}列`);if(v){const d=document.createElement('span');d.className='disc '+(v===B?'black':'white');cell.append(d)}cell.onclick=()=>humanMove(r,c);boardEl.append(cell)}document.querySelector('#blackScore').textContent=count(B);document.querySelector('#whiteScore').textContent=count(W);document.querySelector('#turn').textContent=gameOver?'対局終了':busy?'AI が考えています…':turn===B?'あなたの番です':'AI の番です'}
+  function finish(){gameOver=true;const x=count(B),y=count(W);status(x===y?'引き分けです。':x>y?`あなたの勝ち！ ${x} 対 ${y}`:`AI の勝ち。 ${x} 対 ${y}`);render()}
+  function advance(){const ms=moves(board,turn);if(!ms.length){if(!moves(board,-turn).length)return finish();turn=-turn;status(turn===B?'AI は置けないため、あなたの番です。':'あなたは置けないため、AI の番です。');render();if(turn===W)aiMove();return}render();if(turn===W)aiMove()}
+  function humanMove(r,c){const m=moves(board,B).find(x=>x.r===r&&x.c===c);if(!m)return;board=put(board,m,B);turn=W;busy=true;status('AI が手を選んでいます…');render();setTimeout(()=>{busy=false;advance()},180)}
+  function aiMove(){busy=true;render();setTimeout(()=>{const m=bestMove();if(m){board=put(board,m,W);turn=B;status('あなたの番です。');}busy=false;advance()},260)}
+  function start(){board=Array.from({length:8},()=>Array(8).fill(E));board[3][3]=W;board[3][4]=B;board[4][3]=B;board[4][4]=W;turn=B;busy=false;gameOver=false;status('金色の印が置ける場所です。');render()}
+  function stoneName(p){return p===B?'黒':'白'}
+  function render(){boardEl.replaceChildren();const legal=turn===human&&!busy?moves(board,human):[];for(let r=0;r<8;r++)for(let c=0;c<8;c++){const v=board[r][c],cell=document.createElement('button'),isLegal=legal.some(m=>m.r===r&&m.c===c);cell.className='cell'+(!v&&isLegal?' hint':'');cell.disabled=busy||gameOver||turn!==human||!isLegal;cell.setAttribute('aria-label',`${String.fromCharCode(65+c)}${r+1}`);if(v){const d=document.createElement('span');d.className='disc '+(v===B?'black':'white');cell.append(d)}cell.onclick=()=>humanMove(r,c);boardEl.append(cell)}document.querySelector('#blackScore').textContent=count(B);document.querySelector('#whiteScore').textContent=count(W);document.querySelector('#turn').textContent=gameOver?'対局終了':busy?'AI が考えています…':turn===human?`あなた（${stoneName(human)}）の番です`:`AI（${stoneName(ai)}）の番です`}
+  function finish(){gameOver=true;const player=count(human),computer=count(ai);status(player===computer?'引き分けです。':player>computer?`あなたの勝ち！ ${player} 対 ${computer}`:`AI の勝ち。 ${player} 対 ${computer}`);render()}
+  function advance(){const ms=moves(board,turn);if(!ms.length){if(!moves(board,-turn).length)return finish();turn=-turn;status(turn===human?'AI は置けないため、あなたの番です。':'あなたは置けないため、AI の番です。');render();if(turn===ai)aiMove();return}render();if(turn===ai)aiMove()}
+  function humanMove(r,c){const m=moves(board,human).find(x=>x.r===r&&x.c===c);if(!m)return;board=put(board,m,human);turn=ai;busy=true;status('AI が手を選んでいます…');render();setTimeout(()=>{busy=false;advance()},180)}
+  function aiMove(){busy=true;render();setTimeout(()=>{const m=bestMove();if(m){board=put(board,m,ai);turn=human;status('あなたの番です。')}busy=false;advance()},260)}
+  function start(){human=document.querySelector('#playerColor').value==='black'?B:W;ai=-human;aiLastMove=null;history=[];board=Array.from({length:8},()=>Array(8).fill(E));board[3][3]=W;board[3][4]=B;board[4][3]=B;board[4][4]=W;turn=B;busy=false;gameOver=false;document.querySelector('.sub').textContent=`あなた（${stoneName(human)}） vs AI（${stoneName(ai)}）`;document.querySelector('.legend').innerHTML=`<span><i class="dot ${human===B?'black':'white'}"></i>あなた（${stoneName(human)}）</span><span><i class="dot ${ai===B?'black':'white'}"></i>AI（${stoneName(ai)}）</span>`;status(human===B?'金色の印が置ける場所です。':'AI が先手です。');renderRecord();render();if(turn===ai)aiMove()}
+  function aiMove(){busy=true;render();setTimeout(()=>{const m=bestMove();if(m){board=put(board,m,ai);aiLastMove={r:m.r,c:m.c};turn=human;status('あなたの番です。')}busy=false;advance()},260)}
+  function moveText(m){return `${String.fromCharCode(65+m.c)}${m.r+1}`}
+  function renderRecord(){document.querySelector('#record').value=history.length?history.join(''):'対局開始';document.querySelector('#copyStatus').textContent=''}
+  function advance(){const ms=moves(board,turn);if(!ms.length){if(!moves(board,-turn).length)return finish();history.push('pass');renderRecord();turn=-turn;status(turn===human?'AI は置けないため、あなたの番です。':'あなたは置けないため、AI の番です。');render();if(turn===ai)aiMove();return}render();if(turn===ai)aiMove()}
+  function humanMove(r,c){const m=moves(board,human).find(x=>x.r===r&&x.c===c);if(!m)return;history.push(moveText(m));renderRecord();board=put(board,m,human);turn=ai;busy=true;status('AI が手を選んでいます…');render();setTimeout(()=>{busy=false;advance()},180)}
+  function aiMove(){busy=true;render();setTimeout(()=>{const m=bestMove();if(m){history.push(moveText(m));renderRecord();board=put(board,m,ai);aiLastMove={r:m.r,c:m.c};turn=human;status('あなたの番です。')}busy=false;advance()},260)}
+  function copyRecord(){const record=document.querySelector('#record'),done=()=>{document.querySelector('#copyStatus').textContent='コピーしました';};const fallback=()=>{record.focus();record.select();document.execCommand('copy');done();};if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(record.value).then(done).catch(fallback)}else fallback()}
+  document.querySelector('#newGame').onclick=start;document.querySelector('#playerColor').onchange=start;document.querySelector('#copyRecord').onclick=copyRecord;start();
+})();
+</script>
+</body>
+</html>
